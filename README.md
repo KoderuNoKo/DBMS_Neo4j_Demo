@@ -27,3 +27,12 @@ neo4j_demo/
 - `export_patient.py` Creates Patient.csv from folder + clinical notes
 - `export_study-series-img.py` Creates Study.csv, Series.csv, and Image.csv and the relationship connecting them
 - `export_study-series-img.ps1` (legacy) PowerShell version of the above script
+
+# Image Storage
+
+- The image is stored in Neo4j as a URL, which can be used to get the file via a **Simple HTTP Server** 
+- To set up the server, in the `01_MRI_Data` directory, run
+```sh
+python -m http.server
+```
+- This command to initialize a minimal HTTP server to serve the `.ima` file via said URL.
