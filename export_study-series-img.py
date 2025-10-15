@@ -30,8 +30,6 @@ from datetime import datetime
 from collections import OrderedDict
 import pydicom
 
-from server import PORT
-
 # ---------- CONFIG ----------
 
 BASE_DIR = "./01_MRI_Data"                  # top-level dataset folder

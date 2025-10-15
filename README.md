@@ -10,23 +10,27 @@ neo4j_demo/
 ├── 01_MRI_Data/
 ├── Radiologists Notes for Lumbar Spine MRI Dataset/
 ├── mri_export/
+├── ml-latest/
+├   └── cleaned/
+├── pg_script/
 ├── export_patient.py
 ├── export_study-series-img.py
 ├── export_study-series-img.ps1
-├── k57fr854j2-2.zip
 └── .venv/
 ```
 
 ## Notable folders and files 
 ### Data
-- `01_MRI_Data` Raw MRI dataset (unzipped from k57fr854j2-2.zip)
+- `01_MRI_Data` Raw MRI dataset (unzipped from `k57fr854j2-2.zip`)
 - `Radiologists Notes for Lumbar Spine MRI Dataset` Radiologists Notes for Lumbar Spine MRI Dataset/
 - `mri_export` Output folder for generated CSV files
-
+- `ml-latest` MovieLens dataset for TA submission
+	- `cleaned` (optional) cleaned csv files of MovieLens dataset in case of encoding failure
 ### Source code
 - `export_patient.py` Creates Patient.csv from folder + clinical notes
 - `export_study-series-img.py` Creates Study.csv, Series.csv, and Image.csv and the relationship connecting them
 - `export_study-series-img.ps1` (legacy) PowerShell version of the above script
+
 
 # Image Storage
 
