@@ -1,5 +1,6 @@
 01_MRI_Data
 .venv
+venv
 *.zip
 mri_export
 Radiologists Notes for Lumbar Spine MRI Dataset
