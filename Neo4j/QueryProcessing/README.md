@@ -41,7 +41,7 @@ Use `PROFILE` after using `EXPLAIN` to **validate estimates vs. reality** — la
 
 ## 🔄 Lifecycle of a Cypher Query
 
-![[Pasted image 20251025165106.png]]
+![Query Lifecycle](./img/query_lifecycle.png)
 
 After parsing, the Cypher query string goes through the **query optimizer**, which produces an **imperative plan** — known as the **logical plan** — that determines the most efficient way to execute the query given the **current state of the database** (schema, indexes, and statistics).
 
@@ -90,8 +90,9 @@ The **execution plan** is a structured tree of operators that defines _how_ the 
 `LIMIT 1000;`
 
 **Execution plan**
-![[Pasted image 20251025222223.png]]
-![[Pasted image 20251025222313.png]]
+![Execution plan img1](./img/execution_plan_1.png)
+![Execution plan img1](./img/execution_plan_2.png)
+
 `┌────────────────────────────────────────────┐
 `│ NodeUniqueIndexSeekByRange@movielens       │
 `│ UNIQUE m:Movie(movieId) WHERE movieId > 100│
@@ -114,7 +115,7 @@ The **execution plan** is a structured tree of operators that defines _how_ the 
                  ▼
 `┌────────────────────────────────────────────┐
 `│ Limit@movielens                            │
-`│ limit: 1000                               │
+`│ limit: 1000                                │
 `└────────────────────────────────────────────┘
                  ▼
 `┌────────────────────────────────────────────┐
