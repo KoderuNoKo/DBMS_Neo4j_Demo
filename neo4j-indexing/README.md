@@ -122,6 +122,8 @@ Lucene calculates a relevance score based on text similarity:
 
 - Similar terms (e.g., "avatars", "the avatar returns") may also match, depending on the analyzer.
 
+![fulltext-index result](./img/full_text_index.png)
+
 ## 4. Comparison Table 
 |Index Type|Purpose|Example|
 |----------|-------|-------|
