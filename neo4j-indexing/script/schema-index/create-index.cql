@@ -1,0 +1,1 @@
+CREATE INDEX movie_title_index FOR (m:Movie) ON (m.title);
