@@ -1,4 +1,4 @@
-Neo4j’s graph database model is built around **three core entities**:
+x`Neo4j’s graph database model is built around **three core entities**:
 
 - **Nodes** — entities or objects (like `Movie`, `Person`, `City`)
     
@@ -89,64 +89,122 @@ The **execution plan** is a structured tree of operators that defines _how_ the 
 `RETURN m.title, g.name 
 `LIMIT 1000;`
 
-**Execution plan**
-![Execution plan img1](./img/execution_plan_1.png)
-![Execution plan img1](./img/execution_plan_2.png)
+**Query Process**
 
-`┌────────────────────────────────────────────┐
-`│ NodeUniqueIndexSeekByRange@movielens       │
-`│ UNIQUE m:Movie(movieId) WHERE movieId > 100│
-`└────────────────────────────────────────────┘
-                 ▼
-`┌────────────────────────────────────────────┐
-`│ CacheProperties@movielens                  │
-`│  cache[m.title]                            │
-`└────────────────────────────────────────────┘
-                 ▼
-`┌────────────────────────────────────────────┐
-`│ Expand(All)@movielens                      │
-`│  (m)-[:IN_GENRE]->(g)                      │
-`└────────────────────────────────────────────┘
-                 ▼
-`┌────────────────────────────────────────────┐
-`│ Filter@movielens                           │
-`│  g:Genre                                   │
-`└────────────────────────────────────────────┘
-                 ▼
-`┌────────────────────────────────────────────┐
-`│ Limit@movielens                            │
-`│ limit: 1000                                │
-`└────────────────────────────────────────────┘
-                 ▼
-`┌────────────────────────────────────────────┐
-`│ Projection@movielens                       │
-`│ cache[m.title] AS m.title, g.name AS g.name│
-`└────────────────────────────────────────────┘
-                 ▼
-`┌────────────────────────────────────────────┐
-`│ ProduceResults@movielens                   │
-`│  Columns: m.title, g.name                  │
-`└────────────────────────────────────────────┘
+- **Parsing & Semantic Analysis**
+	Neo4j parses this into an **AST** (Abstract Syntax Tree), then performs semantic analysis to resolve:
+	- Variables: `m`, `g`
+	    
+	- Labels: `Movie`, `Genre`
+	    
+	- Relationship type: `IN_GENRE`
+	    
+	- Properties: `m.movieId`, `m.title`, `g.name`
+	    
+	- Filter: `m.movieId > 100`
+	    
+	
+	At this point Neo4j knows:
+	
+	- You’re starting from `:Movie` nodes.
+	    
+	- Filtering by a numeric property.
+	    
+	- Traversing `IN_GENRE` to `:Genre`.
+	
+- **Logical plan**
 
-**Explain**
-- `Rows`: The number of records (rows) produced by this operator and passed to the next one
-- `db hits`: Each operator will send a request to the storage engine to do work such as retrieving or updating data. A _database hit_ is an abstract unit of this storage engine work.
-- `total memory`: The **memory allocated** by operator.
-- `Estimated Rows`: The **query planner’s prediction** of how many rows the operator would produce, based on statistics and indexes.
+	A logical plan is produced for each query graph (depending on the query, a query graph may consist of sub query graphs). This is done in a step-by-step fashion following a bottom-up approach. 
+	
+	At each step, we firstly obtain data such as index and label selectivity from our new statistics store. This data is then used to estimate the cardinality – this is the number of matching rows – using information from the query graph. With this we can estimate a cost, which is used to build a candidate logical plan. (khúc này ý nó là nó chia cái query graph chính thành nhiều query graphs nhỏ để tính toán cost để build thành 1 logical plan)
+	
+	Thus at each step, multiple candidate logical plans for the query graph are produced. (Tại các step thì nó có thể phân ra nhiều hướng từ đó tạo ra nhiều paths khác nhau nên hình thành nhiều plans. Ví dụ như giữa việc sử dụng index `NodeIndexSeek` và scan tất cả các nodes `NodeByLabelScan`)
+	
+	### Plan 1 (Start from Movie via Index)
+	`ProduceResults  
+		`└─ Projection(m.title, g.name)      
+			`└─ Limit(1000)          
+				`└─ Expand(m)-[:IN_GENRE]->(g)              
+					`└─ NodeIndexSeek(m:Movie(movieId > 100))`
 
-`Operator`
-- `NodeUniqueIndexSeekByRange@movielens`: Uses the unique index on `Movie(movieId)` to seek nodes where `movieId > 100`
-- `CacheProperties@movielens`: Caches the property `m.title` for reuse later (Reduce redundant `db hits`).
-- `Expand(All)@movielens`: Traverses relationships `(m)-[:IN_GENRE]->(g)`
-- `Filter@movielens`: Ensures `g` nodes have the label `:Genre`.
-- `Limit@movielens`: Stops processing after 1,000 rows.
-- `Projection@movielens`: Selects only `m.title` and `g.name`.
-- `ProduceResults`: Outputs the final rows to the user.
+	### Plan 2 (Start from Movie via LabelScan)
+	`ProduceResults  
+		`└─ Projection(m.title, g.name)      
+			`└─ Limit(1000)          
+				`└─ Expand(m)-[:IN_GENRE]->(g)              
+					`└─ Filter(m.movieId > 100)                  
+						`└─ NodeByLabelScan(m:Movie)`
+	...
+	
+	A greedy search strategy is used to pick the cheapest logical plan from the multiple candidates as the process percolates up the query graph.
+	
+
+- **Execution plan**
+
+	An execution plan is created from the logical plan by choosing a physical implementation for logical operators, and subsequently cached
+	![Execution plan img1](./img/execution_plan_1.png)
+	![Execution plan img1](./img/execution_plan_2.png)
+	
+	`┌────────────────────────────────────────────┐
+	`│ NodeUniqueIndexSeekByRange@movielens       │
+	`│ UNIQUE m:Movie(movieId) WHERE movieId > 100│
+	`└────────────────────────────────────────────┘
+	                 ▼
+	`┌────────────────────────────────────────────┐
+	`│ CacheProperties@movielens                  │
+	`│  cache[m.title]                            │
+	`└────────────────────────────────────────────┘
+	                 ▼
+	`┌────────────────────────────────────────────┐
+	`│ Expand(All)@movielens                      │
+	`│  (m)-[:IN_GENRE]->(g)                      │
+	`└────────────────────────────────────────────┘
+	                 ▼
+	`┌────────────────────────────────────────────┐
+	`│ Filter@movielens                           │
+	`│  g:Genre                                   │
+	`└────────────────────────────────────────────┘
+	                 ▼
+	`┌────────────────────────────────────────────┐
+	`│ Limit@movielens                            │
+	`│ limit: 1000                                │
+	`└────────────────────────────────────────────┘
+	                 ▼
+	`┌────────────────────────────────────────────┐
+	`│ Projection@movielens                       │
+	`│ cache[m.title] AS m.title, g.name AS g.name│
+	`└────────────────────────────────────────────┘
+	                 ▼
+	`┌────────────────────────────────────────────┐
+	`│ ProduceResults@movielens                   │
+	`│  Columns: m.title, g.name                  │
+	`└────────────────────────────────────────────┘
+	
+	**Explain**
+	- `Rows`: The number of records (rows) produced by this operator and passed to the next one
+	- `db hits`: Each operator will send a request to the storage engine to do work such as retrieving or updating data. A _database hit_ is an abstract unit of this storage engine work.
+	- `total memory`: The **memory allocated** by operator.
+	- `Estimated Rows`: The **query planner’s prediction** of how many rows the operator would produce, based on statistics and indexes.
+	
+	`Operator`
+	- `NodeUniqueIndexSeekByRange@movielens`: Uses the unique index on `Movie(movieId)` to seek nodes where `movieId > 100`
+	- `CacheProperties@movielens`: Caches the property `m.title` for reuse later (Reduce redundant `db hits`).
+	- `Expand(All)@movielens`: Traverses relationships `(m)-[:IN_GENRE]->(g)`
+	- `Filter@movielens`: Ensures `g` nodes have the label `:Genre`.
+	- `Limit@movielens`: Stops processing after 1,000 rows.
+	- `Projection@movielens`: Selects only `m.title` and `g.name`.
+	- `ProduceResults`: Outputs the final rows to the user.
 
 ---
 ## 🧩 Resources
+
+Cypher Query Optimizer: https://neo4j.com/blog/cypher-and-gql/introducing-new-cypher-query-optimizer/
 
 Execution plans: https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/execution-plans/
 
 Table of all operator: https://neo4j.com/docs/cypher-manual/current/planning-and-tuning/operators/
 
+# Following work 
+- Nghiên cứu cơ chế tương tự như Relational Algebra, xem khi cypher parse sẽ ra cấu trúc gì. Xử lý như thế nào
+	- Vd như SQL thì khi parse sẽ ra relational algebra, sau đó tiến hành tối ưu từ cái cây. Thì xem cypher sẽ là như thế nào??? =))) 
+- Nghiên cứu cách cypher optimize query.
