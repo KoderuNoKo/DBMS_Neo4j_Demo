@@ -10,12 +10,9 @@ neo4j_demo/
 ├── 01_MRI_Data/
 ├── Radiologists Notes for Lumbar Spine MRI Dataset/
 ├── mri_export/
-├── ml-latest/
-├   └── cleaned/
-├── pg_script/
-├── export_patient.py
-├── export_study-series-img.py
-├── export_study-series-img.ps1
+├── mri_export_pg/
+├── Postgres/
+├── MriExporter/
 └── .venv/
 ```
 
@@ -26,11 +23,26 @@ neo4j_demo/
 - `mri_export` Output folder for generated CSV files
 - `ml-latest` MovieLens dataset for TA submission
 	- `cleaned` (optional) cleaned csv files of MovieLens dataset in case of encoding failure
-### Source code
-- `export_patient.py` Creates Patient.csv from folder + clinical notes
-- `export_study-series-img.py` Creates Study.csv, Series.csv, and Image.csv and the relationship connecting them
-- `export_study-series-img.ps1` (legacy) PowerShell version of the above script
 
+### Source code
+- `/MriExporter` Python module for processing the dataset. To use it run the following command. The module will automatically process the dataset in `./01_MRI_Data` into csv files in `./mri_export`
+
+```bash
+python ./MriExporter/main.py
+```
+
+- `./Postgres` contain all scripts for works on PostgreSQL
+
+### Others
+
+- `req.txt` list of python libraries. Get all dependencies by activating a python virtual environment and run
+```bash
+pip install -r ./req.txt
+```
+- Or update it with your dependencies
+```bash
+pip freeze > ./req.txt
+```
 
 # Image Storage
 
