@@ -5,6 +5,11 @@ class Config:
     OUT_DIR = "./mri_export"
     BASE_URL = "http://localhost:8000/"  # Base URL for serving images
     
+    # Image processing options
+    EXPORT_IMAGES = True          # Extract images from .ima
+    IMAGE_FORMAT = "png"          # Choose: png, jpg, jpeg, etc.
+    GENERATE_EMBEDDINGS = True    # Generate CLIP embeddings
+    
     # Output CSV files
     PATIENT_CSV = "Patient.csv"
     STUDY_CSV = "Study.csv"

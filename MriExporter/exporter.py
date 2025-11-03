@@ -1,6 +1,7 @@
 from dicom_reader import DicomExtractor
 from utils import Utils
 from config import Config, DicomMappings
+from ImaProcessor import ImaProcessor
 
 from typing import Dict, List, Tuple, Optional, Any
 import pandas as pd
@@ -44,6 +45,9 @@ class DataExporter:
         
         # Clinical notes
         self.clinical_notes = self._load_clinical_notes()
+        
+        # .Ima processing model
+        self.ima_proc = ImaProcessor()
     
     def _load_clinical_notes(self) -> Dict[str, str]:
         """Load clinical notes from CSV."""
@@ -266,7 +270,14 @@ class DataExporter:
         
         image_record = OrderedDict()
         image_record["ImageId"] = image_id
-        image_record["FilePath"] = self.config.BASE_URL + rel_path
+        
+        if Config.GENERATE_EMBEDDINGS:
+            image_record["EmbeddingVector"] = self.ima_proc.process_ima(filepath=filepath, to_img=Config.EXPORT_IMAGES, output_format=Config.IMAGE_FORMAT)
+        
+        if Config.EXPORT_IMAGES:
+            rel_path = rel_path.replace(".ima", f".{Config.IMAGE_FORMAT}")
+            image_record["FilePath"] = self.config.BASE_URL + rel_path
+        
         # Add all remaining DICOM attributes
         image_record.update(image_attrs)
         
@@ -298,7 +309,7 @@ class DataExporter:
         print("\nWriting CSV files...")
         self._write_csvs()
         
-        print("\n✅ Export complete!")
+        print("\nExport complete!")
         print(f"   Output directory: {self.config.OUT_DIR}")
         print(f"   Patients: {len(self.patients)}")
         print(f"   Studies: {len(self.studies)}")
