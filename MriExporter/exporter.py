@@ -119,11 +119,11 @@ class DataExporter:
         # Create patient record
         patient_record = {
             "PatientId": patient_id,
-            "Age": patient_attrs.get("PatientAge", ""),
+            "Age": self.utils.parse_patient_age(patient_attrs.get("PatientAge", "")),
             "Sex": patient_attrs.get("PatientSex", ""),
             "Size": patient_attrs.get("PatientSize", ""),
             "Weight": patient_attrs.get("PatientWeight", ""),
-            "PatientIdentityRemoved": patient_attrs.get("PatientIdentityRemoved", ""),
+            "PatientIdentityRemoved": self.utils.parse_yes_no_to_boolean(patient_attrs.get("PatientIdentityRemoved", "")),
             "DeidentificationMethod": patient_attrs.get("DeidentificationMethod", ""),
             "Birthdate": patient_attrs.get("PatientBirthDate", ""),
             "ClinicalNote": self.clinical_notes.get(patient_id, "")

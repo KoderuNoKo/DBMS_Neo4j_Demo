@@ -99,3 +99,25 @@ class Utils:
         """Generate consistent hash ID from multiple arguments."""
         combined = "|".join(str(a) for a in args)
         return hashlib.md5(combined.encode()).hexdigest()[:16]
+    
+    
+    def parse_patient_age(self, age_str: str) -> str:
+        """Parse DICOM age string (e.g., '053Y') to integer."""
+        if not age_str:
+            return ""
+        # Extract digits from age string
+        match = re.search(r'(\d+)', age_str)
+        if match:
+            return str(int(match.group(1)))
+        return ""
+
+    def parse_yes_no_to_boolean(self, value: str) -> str:
+        """Convert YES/NO string to boolean representation."""
+        if not value:
+            return ""
+        value_upper = value.strip().upper()
+        if value_upper == "YES":
+            return "true"
+        elif value_upper == "NO":
+            return "false"
+        return value
