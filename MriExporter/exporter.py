@@ -71,11 +71,10 @@ class DataExporter:
         )
         
         if eq_hash in self.equipment_map:
-            return self.equipment_map[eq_hash]
+            return self.equipment_map[eq_hash]["EquipmentId"]
         
         eq_id = self.equipment_id_counter
         self.equipment_id_counter += 1
-        self.equipment_map[eq_hash] = eq_id
         
         self.equipment_map[eq_hash] = {
             "EquipmentId": eq_id,
@@ -92,7 +91,7 @@ class DataExporter:
         param_hash = self.utils.generate_hash_id(*attrs.values())
         
         if param_hash in self.param_map:
-            return self.param_map[param_hash]
+            return self.param_map[param_hash]["ParameterID"]
         
         param_id = self.param_id_counter
         self.param_id_counter += 1
@@ -276,7 +275,8 @@ class DataExporter:
         
         if Config.EXPORT_IMAGES:
             rel_path = rel_path.replace(".ima", f".{Config.IMAGE_FORMAT}")
-            image_record["FilePath"] = self.config.BASE_URL + rel_path
+        
+        image_record["FilePath"] = self.config.BASE_URL + rel_path
         
         # Add all remaining DICOM attributes
         image_record.update(image_attrs)

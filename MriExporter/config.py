@@ -6,9 +6,9 @@ class Config:
     BASE_URL = "http://localhost:8000/"  # Base URL for serving images
     
     # Image processing options
-    EXPORT_IMAGES = True          # Extract images from .ima
+    EXPORT_IMAGES = False          # Extract images from .ima
     IMAGE_FORMAT = "png"          # Choose: png, jpg, jpeg, etc.
-    GENERATE_EMBEDDINGS = True    # Generate CLIP embeddings
+    GENERATE_EMBEDDINGS = False    # Generate CLIP embeddings
     
     # Output CSV files
     PATIENT_CSV = "Patient.csv"
