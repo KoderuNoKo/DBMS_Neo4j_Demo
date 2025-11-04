@@ -3,6 +3,21 @@
 - This project demonstrates how to extract, structure, and store **MRI imaging metadata** (from `.ima` files) into a **Neo4j graph database**.  
 - It uses the **Lumbar Spine MRI Dataset** from Mendeley and integrates radiologists’ clinical notes for a rich, queryable medical graph.
 
+# Python virtual environment
+
+- Python scripts in this repo requires external libraries, they need to be installed before using. It is recommended to do that in a *virtual environment*. Create one with
+
+```bash
+python -m venv <venv_name>
+```
+
+- After an environment is created, enable it and install all necessary dependencies
+
+```bash
+<venv_name>/Script/activate // Windows
+source <venv_name>/bin/activate // MacOS, UNIX
+```
+
 # Project Structure
 
 ```
