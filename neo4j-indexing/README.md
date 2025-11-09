@@ -17,22 +17,22 @@ Neo4j provides several types of indexes to improve query performance:
 ## 2. Schema Index
 
 Schema indexes are the most common type of index in Neo4j.  
-They allow fast lookups when filtering nodes or relationships by exact property values [1].
+They allow fast lookups when filtering nodes or relationships by extract property values [1].
 
 ### Example
 
 ```cypher
-MATCH (m:Movie)
-WHERE m.title = "Toy Story (1995)"
-RETURN m;
+MATCH (p:Patient)
+WHERE p.PatientId = 280
+RETURN p;
 ```
 Without an Index
 
-- Neo4j performs a Node Label Scan, scanning all nodes with label Movie.
+- Neo4j performs a Node Label Scan, scanning all nodes with label Patient.
 
-- For example, if there are 100,000 Movie nodes:
+- For example, if there are 100,000 Patient nodes:
 
-    - The database must check each node’s title property.
+    - The database must check each node’s PatientId property.
 
     - This is time-consuming and results in high DB hits.
 
@@ -41,21 +41,21 @@ Without an Index
 
 With a Schema Index
 
-Create an index on the `title` property:
+Create an index on the `PatientId` property:
 ```Cypher
-CREATE INDEX movie_title_index FOR (m:Movie) ON (m.title);
+CREATE INDEX patient_id_index FOR (p:Patient) ON (p.PatientId);
 ```
 Neo4j will:
 
-1. Scan all existing Movie nodes.
+1. Scan all existing Patient nodes.
 
-2. Store a mapping between each node ID and its title value in a B-tree index.
+2. Store a mapping between each node ID and its PatientId value in a B-tree index.
 
 3. Save this index separately, allowing future queries to find nodes efficiently.
 
 When the same query runs again:
 
-- Neo4j detects that an index exists for Movie(title).
+- Neo4j detects that an index exists for Patient(PatientID).
 
 - It uses a Node Index Seek instead of a full label scan.
 
@@ -67,7 +67,7 @@ Neo4j will only use a schema index when:
 
 - The `WHERE` clause filters directly on an indexed property.
 
-- The property is not wrapped in a function (e.g., toLower(m.title) cannot use the index).
+- The property is not wrapped in a function (e.g., toLower(p.PatientId) cannot use the index).
 
 - There are no complex OR conditions involving non-indexed properties.
 
@@ -77,18 +77,18 @@ They rely on the Lucene analyzer to tokenize and normalize text [2].
 
 ### Creating a Full-text Index
 ```Cypher
-CALL db.index.fulltext.createNodeIndex(
-  "movieTitleIndex", ["Movie"], ["title"]
-);
+CREATE FULLTEXT INDEX patientClinicalNoteIndex
+FOR (p:Patient)
+ON EACH [p.ClinicalNote];
 ```
 
 Neo4j will:
 
-1. Scan all `:Movie` nodes.
+1. Scan all `:Patient` nodes.
 
-2. Extract the `title` property.
+2. Extract the `ClinicalNote` property.
 
-3. Process each title through the Lucene analyzer, which:
+3. Process each Clinical Note through the Lucene analyzer, which:
 
     - Converts text to lowercase.
 
@@ -111,24 +111,27 @@ Example of Inverted index:
 Instead of using `MATCH ... WHERE`, use the `db.index.fulltext.queryNodes` procedure:
 ```Cypher
 CALL db.index.fulltext.queryNodes(
-  "movieTitleIndex", "avatar"
-) YIELD node, score
-RETURN node, score
-ORDER BY score DESC;
+  'patientClinicalNoteIndex',
+  'fracture, fractures'
+)
+YIELD node
+RETURN node;
 ```
 Lucene calculates a relevance score based on text similarity:
 
 - Nodes with exact matches appear first.
 
-- Similar terms (e.g., "avatars", "the avatar returns") may also match, depending on the analyzer.
 
 ![fulltext-index result](./img/full_text_index.png)
 
+Compare to normal `MATCH...WHERE` using `CONTAINS`:
+
+![no fulltext-index result](./img/no_full_text.png)
 ## 4. Comparison Table 
 |Index Type|Purpose|Example|
 |----------|-------|-------|
-|Schema Index|Speeds up lookups by property value|`CREATE INDEX movie_title_index FOR (m:Movie) ON (m.title);`|
-|Full-text Index|Enables keyword search on text properties|`CALL db.index.fulltext.createNodeIndex("movieTitleIndex", ["Movie"], ["title"]);`|
+|Schema Index|Speeds up lookups by property value|`CREATE INDEX patient_id_index FOR (p:Patient) ON (p.PatientId); MATCH (p:Patient) WHERE p.PatientId = 280RETURN p;`|
+|Full-text Index|Enables keyword search on text properties|`CREATE FULLTEXT INDEX patientClinicalNoteIndex FOR (p:Patient) ON EACH [p.ClinicalNote]; CALL db.index.fulltext.createNodeIndex("movieTitleIndex", ["Movie"], ["title"]);`|
 
 
 ## 5. Key notes
