@@ -1,0 +1,191 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage[colorlinks=true, linkcolor=blue, urlcolor=blue]{hyperref}
+\usepackage{enumitem}
+\geometry{a4paper, margin=1in}
+\usepackage{listings}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\lstdefinestyle{SQL}{
+  language=SQL,
+  backgroundcolor=\color{gray!10},
+  keywordstyle=\color{blue}\bfseries,
+  stringstyle=\color{orange},
+  commentstyle=\color{gray},
+  basicstyle=\ttfamily\small,
+  showstringspaces=false,
+  breaklines=true
+}
+
+
+\begin{document}
+
+\section{PostgreSQL Transactions}
+
+\subsection{Atomicity}
+
+We open 2 sections, A and B
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+BEGIN;
+
+UPDATE patient
+SET weight = weight + 5
+WHERE sex = 'M';
+\end{lstlisting}
+
+\begin{lstlisting}[style=SQL, caption={Session B}]
+SELECT * FROM patient WHERE sex = 'M';
+\end{lstlisting}
+
+When we run session B, we get the un-updated results because we haven't commited in session A yet 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{1.png}
+    \label{fig:example}
+\end{figure}
+
+When we commited in session A
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+COMMIT;
+\end{lstlisting}
+
+and we run session B again
+
+\begin{lstlisting}[style=SQL, caption={Session B}]
+SELECT * FROM patient WHERE sex = 'M';
+\end{lstlisting}
+
+we get the 1 row as the result
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{2.png}
+    \label{fig:example}
+\end{figure}
+
+Now we try rollback
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+BEGIN;
+
+UPDATE patient
+SET weight = weight + 7
+WHERE sex = 'F';
+SELECT * FROM patient WHERE sex = 'F';
+\end{lstlisting}
+
+When we run this session, we get this row as a result
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{3.png}
+    \label{fig:example}
+\end{figure}
+
+But when we rollback
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+ROLLBACK;
+\end{lstlisting}
+
+and run this code again in the same session
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+SELECT * FROM patient WHERE sex = 'F';
+\end{lstlisting}
+
+we get the old result back
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{4.png}
+    \label{fig:example}
+\end{figure}
+
+\subsection{Consistency}
+
+\begin{lstlisting}[style=SQL]
+INSERT INTO PATIENT VALUES (9, 40, 'F');
+\end{lstlisting}
+
+When we try to add a new role that violates foreign key constraint, it gives us an error message
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{5.png}
+    \label{fig:example}
+\end{figure}
+
+Normally we should use \texttt{ROLLBACK;} to prevent any errors that could occur
+
+
+\subsection{Isolation}
+
+Isolation levels control how concurrently executing transactions interact. PostgreSQL supports \texttt{READ COMMITTED, REPEATABLE READ} and \texttt{SERIALIZABLE}. We will try the \texttt{READ COMMITED} isolation level, which is default in PostgreSQL
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+BEGIN;
+SELECT AVG(weight) FROM patient;
+\end{lstlisting}
+
+When we run this in session A, it gives us this result
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{6.png}
+    \label{fig:example}
+\end{figure}
+
+then we run this in session B
+
+\begin{lstlisting}[style=SQL, caption={Session B}]
+UPDATE patient SET weight = 200 WHERE patient_id = '10';
+COMMIT;
+\end{lstlisting}
+
+and run this in session A
+
+\begin{lstlisting}[style=SQL, caption={Session A}]
+SELECT AVG(weight) FROM patient;
+\end{lstlisting}
+
+we get a new result
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{7.png}
+    \label{fig:example}
+\end{figure}
+
+This is because session A sees the updated weight because \texttt{READ COMMITTED} fetches the latest committed data for each statement.
+\subsection{Durability}
+
+Once a transaction commits, it will survive system crashes, thanks to WAL (Write-Ahead Logging). For example
+
+\begin{lstlisting}[style=SQL]
+INSERT INTO patient(patient_id, age, sex)
+VALUES (1000, 60, 'M');
+COMMIT;
+\end{lstlisting}
+
+After we run the code, we restart PostgreSQL and query
+
+\begin{lstlisting}[style=SQL]
+SELECT * FROM patient WHERE patient_id = '1000';
+\end{lstlisting}
+
+we still get the correct result
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{8.png}
+    \label{fig:example}
+\end{figure}
+
+
+\end{document}
+
