@@ -1,4 +1,4 @@
-	# Neo4j Schema Design for Lumbar Spine MRI Dataset
+# Neo4j Schema Design for Lumbar Spine MRI Dataset
 
 ## Node Types
 
@@ -46,7 +46,7 @@ Properties:
 
 
 
-### 4. **ImagingParameters**
+### 4. ****
 
 ```
 Properties:
