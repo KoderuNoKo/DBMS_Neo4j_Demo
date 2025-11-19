@@ -6,7 +6,7 @@ from neo4j import GraphDatabase
 URI = "neo4j://localhost:7687"
 USER = "neo4j"
 PASSWORD = "neo4jpassword"
-DB = "movielens"
+DB = "mridata"
 
 
 def transaction_one(driver, t1_has_read, t2_has_written):
@@ -14,16 +14,15 @@ def transaction_one(driver, t1_has_read, t2_has_written):
     This is our "victim" transaction (T1).
     It will read the same data twice and get different results.
     """
-    # Each thread MUST create its own session.
     with driver.session(database=DB) as session:
         
         # We must use an explicit transaction to keep it open
         with session.begin_transaction() as tx:
             try:
                 # 1. First Read
-                result1 = tx.run("MATCH (m:Movie {movieId: 1}) RETURN m.viewCount AS views")
-                value1 = result1.single()['views']
-                print(f"[T1] READ 1: Toy Story's views = {value1}")
+                result1 = tx.run("MATCH (p:Patient {PatientId: 1}) RETURN p.ClinicalNote AS note")
+                value1 = result1.single()['note']
+                print(f"[T1] READ 1: Patient 1's Clinical Note: {value1}")
                 
                 # 2. Signal T2 that it can start its update
                 print("[T1] Pausing. Signaling T2 to run...")
@@ -34,9 +33,9 @@ def transaction_one(driver, t1_has_read, t2_has_written):
                 print("[T1] Resumed. T2 has committed its change.")
                 
                 # 4. Second Read (in the *same* transaction)
-                result2 = tx.run("MATCH (m:Movie {movieId: 1}) RETURN m.viewCount AS views")
-                value2 = result2.single()['views']
-                print(f"[T1] READ 2: Toy Story's views = {value2}")
+                result2 = tx.run("MATCH (p:Patient {PatientId: 1}) RETURN p.ClinicalNote AS note")
+                value2 = result2.single()['note']
+                print(f"[T1] READ 2: Patient 1's Clinical Note: {value2}")
                 
                 # 5. The Proof
                 if value1 != value2:
@@ -45,7 +44,11 @@ def transaction_one(driver, t1_has_read, t2_has_written):
                     print("    This is because T2 committed a change, and our READ_COMMITTED isolation level saw it.")
                 else:
                     print("\n--- Anomaly not detected ---")
-
+                    
+                # 6. Rollback changes
+                string = "{PatientId: 1}"
+                tx.run(f"MATCH (p:Patient {string}) SET p.ClinicalNote = '{value1}'")
+                
                 tx.commit()
 
             except Exception as e:
@@ -63,7 +66,7 @@ def transaction_two(driver, t1_has_read, t2_has_written):
     t1_has_read.wait()
     
     # 2. T1 is now paused. T2 can perform its update.
-    print("[T2] T1 is paused. I will now update the visits to 99.")
+    print("[T2] T1 is paused. I will now update the clinical's note.")
     
     # We can use a managed transaction (execute_write)
     # as it will BEGIN, RUN, and COMMIT all at once.
@@ -77,7 +80,7 @@ def transaction_two(driver, t1_has_read, t2_has_written):
 
 def update_visits(tx):
     """A helper function for T2's write transaction."""
-    tx.run("MATCH (m:Movie {movieId: 1}) SET m.viewCount = 99")
+    tx.run("MATCH (p:Patient {PatientId: 1}) SET p.ClinicalNote = 'Note updated by T2'")
 
 
 # Main script execution

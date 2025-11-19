@@ -46,7 +46,7 @@ Properties:
 
 
 
-### 4. ****
+### 4. **ImagingParameters**
 
 ```
 Properties:
