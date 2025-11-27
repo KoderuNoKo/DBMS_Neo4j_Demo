@@ -1,3 +1,7 @@
+"""
+Modified exporter.py with batch writing capability
+"""
+
 from dicom_reader import DicomExtractor
 from utils import Utils
 from config import Config, DicomMappings
@@ -16,10 +20,11 @@ import re
 class DataExporter:
     """Main exporter class that orchestrates the export process."""
     
-    def __init__(self, config: Config):
+    def __init__(self, config: Config, batch_size: int = 50):
         self.config = config
         self.extractor = DicomExtractor()
         self.utils = Utils()
+        self.batch_size = batch_size  # Number of patients per batch
         
         # Counters for surrogate keys
         self.study_id_counter = 1
@@ -28,15 +33,15 @@ class DataExporter:
         self.equipment_id_counter = 1
         self.param_id_counter = 1
         
-        # Data storage
+        # Data storage (current batch)
         self.patients = []
         self.studies = []
         self.series_list = []
         self.images = []
-        self.equipment_map = {}  # hash -> equipment_id
-        self.param_map = {}  # hash -> param_id
+        self.equipment_map = {}  # hash -> equipment dict (persists across batches)
+        self.param_map = {}  # hash -> param dict (persists across batches)
         
-        # Relationships
+        # Relationships (current batch)
         self.rel_has_study = []
         self.rel_contains_series = []
         self.rel_contains_image = []
@@ -48,6 +53,12 @@ class DataExporter:
         
         # .Ima processing model
         self.ima_proc = ImaProcessor()
+        
+        # Track if first write (for headers)
+        self.first_write = True
+        
+        # Patient counter for batching
+        self.patient_count = 0
     
     def _load_clinical_notes(self) -> Dict[str, str]:
         """Load clinical notes from CSV."""
@@ -290,85 +301,121 @@ class DataExporter:
             "InstanceNumber": instance_num or 0
         })
     
-    def export(self):
-        """Main export method."""
-        os.makedirs(self.config.OUT_DIR, exist_ok=True)
+    def _write_batch(self):
+        """Write current batch to CSV files."""
+        if not self.patients:
+            return
         
-        print("Starting export process...")
+        print(f"  Writing batch ({len(self.patients)} patients)...")
         
-        # Process all patients
-        for patient_folder in sorted(os.listdir(self.config.BASE_DIR)):
-            patient_path = os.path.join(self.config.BASE_DIR, patient_folder)
-            if not os.path.isdir(patient_path) or not re.fullmatch(r"\d+", patient_folder):
-                continue
-            
-            print(f"Processing patient {patient_folder}/575...")
-            self.process_patient(patient_folder, patient_path)
+        # Write nodes (append mode after first write)
+        mode = 'w' if self.first_write else 'a'
+        write_header = self.first_write
         
-        # Write CSVs
-        print("\nWriting CSV files...")
-        self._write_csvs()
+        self._write_csv_batch(self.config.PATIENT_CSV, self.patients, mode, write_header)
+        self._write_csv_batch(self.config.STUDY_CSV, self.studies, mode, write_header)
+        self._write_csv_batch(self.config.SERIES_CSV, self.series_list, mode, write_header)
         
-        print("\nExport complete!")
-        print(f"   Output directory: {self.config.OUT_DIR}")
-        print(f"   Patients: {len(self.patients)}")
-        print(f"   Studies: {len(self.studies)}")
-        print(f"   Series: {len(self.series_list)}")
-        print(f"   Images: {len(self.images)}")
-        print(f"   Equipment: {len(self.equipment_map)}")
-        print(f"   Imaging Parameters: {len(self.param_map)}")
+        # Image with dynamic columns
+        self._write_csv_dynamic_batch(self.config.IMAGE_CSV, self.images, mode, write_header)
+        
+        # Write relationships (append mode after first write)
+        self._write_csv_batch(self.config.REL_HAS_STUDY_CSV, self.rel_has_study, mode, write_header)
+        self._write_csv_batch(self.config.REL_CONTAINS_SERIES_CSV, self.rel_contains_series, mode, write_header)
+        self._write_csv_batch(self.config.REL_CONTAINS_IMAGE_CSV, self.rel_contains_image, mode, write_header)
+        self._write_csv_batch(self.config.REL_HAS_PARAMETERS_CSV, self.rel_has_parameters, mode, write_header)
+        self._write_csv_batch(self.config.REL_PERFORMED_ON_CSV, self.rel_performed_on, mode, write_header)
+        
+        # Clear batch data (but keep equipment_map and param_map)
+        self.patients = []
+        self.studies = []
+        self.series_list = []
+        self.images = []
+        self.rel_has_study = []
+        self.rel_contains_series = []
+        self.rel_contains_image = []
+        self.rel_has_parameters = []
+        self.rel_performed_on = []
+        
+        self.first_write = False
     
-    def _write_csvs(self):
-        """Write all data to CSV files."""
-        # Patient
-        self._write_csv(self.config.PATIENT_CSV, self.patients)
+    def _finalize_equipment_and_params(self):
+        """Write equipment and imaging parameters at the end (after all patients processed)."""
+        print("  Writing equipment and imaging parameters...")
         
-        # Study
-        self._write_csv(self.config.STUDY_CSV, self.studies)
-        
-        # Series
-        self._write_csv(self.config.SERIES_CSV, self.series_list)
-        
-        # Equipment
         equipment_list = list(self.equipment_map.values())
         self._write_csv(self.config.EQUIPMENT_CSV, equipment_list)
         
-        # Imaging Parameters
         param_list = list(self.param_map.values())
         self._write_csv(self.config.IMAGING_PARAMS_CSV, param_list)
-        
-        # Image (with dynamic columns)
-        self._write_csv_dynamic(self.config.IMAGE_CSV, self.images)
-        
-        # Relationships
-        self._write_csv(self.config.REL_HAS_STUDY_CSV, self.rel_has_study)
-        self._write_csv(self.config.REL_CONTAINS_SERIES_CSV, self.rel_contains_series)
-        self._write_csv(self.config.REL_CONTAINS_IMAGE_CSV, self.rel_contains_image)
-        self._write_csv(self.config.REL_HAS_PARAMETERS_CSV, self.rel_has_parameters)
-        self._write_csv(self.config.REL_PERFORMED_ON_CSV, self.rel_performed_on)
     
-    def _write_csv(self, filename: str, data: List[Dict], fieldnames: List[str] = None):
-        """Write data to CSV with fixed columns."""
+    def export(self):
+        """Main export method with batch writing."""
+        os.makedirs(self.config.OUT_DIR, exist_ok=True)
+        
+        print("Starting export process...")
+        print(f"  Batch size: {self.batch_size} patients")
+        
+        # Process all patients with batch writing
+        patient_folders = sorted([
+            f for f in os.listdir(self.config.BASE_DIR)
+            if os.path.isdir(os.path.join(self.config.BASE_DIR, f)) and re.fullmatch(r"\d+", f)
+        ])
+        
+        total_patients = len(patient_folders)
+        
+        for idx, patient_folder in enumerate(patient_folders, 1):
+            patient_path = os.path.join(self.config.BASE_DIR, patient_folder)
+            
+            print(f"Processing patient {patient_folder} ({idx}/{total_patients})...")
+            self.process_patient(patient_folder, patient_path)
+            self.patient_count += 1
+            
+            # Write batch when batch_size reached
+            if self.patient_count >= self.batch_size:
+                self._write_batch()
+                self.patient_count = 0
+        
+        # Write remaining data
+        if self.patients:
+            self._write_batch()
+        
+        # Write equipment and parameters (once at the end)
+        self._finalize_equipment_and_params()
+        
+        print("\nExport complete!")
+        print(f"   Output directory: {self.config.OUT_DIR}")
+        print(f"   Total patients processed: {total_patients}")
+        print(f"   Equipment entries: {len(self.equipment_map)}")
+        print(f"   Imaging Parameters: {len(self.param_map)}")
+    
+    def _write_csv_batch(self, filename: str, data: List[Dict], mode: str = 'w', write_header: bool = True):
+        """Write data to CSV in batch mode (append or write)."""
         if not data:
             return
         
         filepath = os.path.join(self.config.OUT_DIR, filename)
-        if fieldnames is None:
-            fieldnames = list(data[0].keys())
+        fieldnames = list(data[0].keys())
         
-        with open(filepath, "w", newline="", encoding="utf-8") as f:
+        with open(filepath, mode, newline="", encoding="utf-8") as f:
             writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
+            if write_header:
+                writer.writeheader()
             for row in data:
                 writer.writerow({k: row.get(k, "") for k in fieldnames})
     
-    def _write_csv_dynamic(self, filename: str, data: List[Dict]):
-        """Write data to CSV with dynamic columns (for Image)."""
+    def _write_csv_dynamic_batch(self, filename: str, data: List[Dict], mode: str = 'w', write_header: bool = True):
+        """Write data to CSV with dynamic columns in batch mode."""
         if not data:
             return
         
-        # Collect all unique keys
+        filepath = os.path.join(self.config.OUT_DIR, filename)
+        
+        # Collect all unique keys for this batch
         fixed_keys = ["ImageId", "FilePath"]
+        if Config.GENERATE_EMBEDDINGS:
+            fixed_keys.insert(1, "EmbeddingVector")  # Insert after ImageId
+        
         dynamic_keys = []
         dynamic_key_set = set()
         
@@ -381,4 +428,37 @@ class DataExporter:
                     dynamic_key_set.add(k)
         
         fieldnames = fixed_keys + dynamic_keys
-        self._write_csv(filename, data, fieldnames)
+        
+        # For append mode, we need to read existing headers to maintain consistency
+        if mode == 'a' and os.path.exists(filepath):
+            with open(filepath, 'r', newline="", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                existing_fieldnames = reader.fieldnames
+                # Merge fieldnames (preserve order, add new ones)
+                merged_fields = list(existing_fieldnames)
+                for field in fieldnames:
+                    if field not in merged_fields:
+                        merged_fields.append(field)
+                fieldnames = merged_fields
+        
+        with open(filepath, mode, newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            if write_header:
+                writer.writeheader()
+            for row in data:
+                writer.writerow({k: row.get(k, "") for k in fieldnames})
+    
+    def _write_csv(self, filename: str, data: List[Dict], fieldnames: List[str] = None):
+        """Write data to CSV with fixed columns (used for equipment and params at end)."""
+        if not data:
+            return
+        
+        filepath = os.path.join(self.config.OUT_DIR, filename)
+        if fieldnames is None:
+            fieldnames = list(data[0].keys())
+        
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            for row in data:
+                writer.writerow({k: row.get(k, "") for k in fieldnames})

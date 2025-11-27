@@ -1,12 +1,11 @@
 from config import Config
 from exporter import DataExporter
 
-def main():
-    """Main entry point."""
-    config = Config()
-    exporter = DataExporter(config)
-    exporter.export()
+# Default: 50 patients per batch
+config = Config()
+exporter = DataExporter(config, batch_size=50)
+exporter.export()
 
-
-if __name__ == "__main__":
-    main()
+# Custom batch size
+exporter = DataExporter(config, batch_size=100)
+exporter.export()

@@ -1,0 +1,1 @@
+CREATE FULLTEXT INDEX movieTitleIndex FOR (m:Movie) ON EACH [m.title];

@@ -82,6 +82,7 @@ Properties:
 - imageId: Integer // surrogate key
 - ... // All remaining properties from .ima file that is not covered by others Node labels
 - filePath: String // path to obtain the image file
+- EmbeddingVector: [...] // embedding vector for image similarity search
 ```
 ## Relationships
 
