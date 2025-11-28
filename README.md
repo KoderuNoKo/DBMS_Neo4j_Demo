@@ -23,12 +23,14 @@ source <venv_name>/bin/activate // MacOS, UNIX
 ```
 neo4j_demo/
 ├── 01_MRI_Data/
-├── Radiologists Notes for Lumbar Spine MRI Dataset/
+├── docs/
 ├── mri_export/
-├── mri_export_pg/
-├── Postgres/
 ├── MriExporter/
-└── .venv/
+├── Neo4j/
+├── Postgres/
+├── Radiologists Notes for Lumbar Spine MRI Dataset/
+├── README.md
+└── req.txt/
 ```
 
 ## Notable folders and files 
@@ -36,8 +38,6 @@ neo4j_demo/
 - `01_MRI_Data` Raw MRI dataset (unzipped from `k57fr854j2-2.zip`)
 - `Radiologists Notes for Lumbar Spine MRI Dataset` Radiologists Notes for Lumbar Spine MRI Dataset/
 - `mri_export` Output folder for generated CSV files
-- `ml-latest` MovieLens dataset for TA submission
-	- `cleaned` (optional) cleaned csv files of MovieLens dataset in case of encoding failure
 
 ### Source code
 - `/MriExporter` Python module for processing the dataset. To use it run the following command. The module will automatically process the dataset in `./01_MRI_Data` into csv files in `./mri_export`
@@ -46,20 +46,21 @@ neo4j_demo/
 python ./MriExporter/main.py
 ```
 
+- `./Neo4j` contain all scripts for works on Neo4j
 - `./Postgres` contain all scripts for works on PostgreSQL
-
 ### Others
 
-- `req.txt` list of python libraries. Get all dependencies by activating a python virtual environment and run
-```bash
-pip install -r ./req.txt
-```
-- Or update it with your dependencies
-```bash
-pip freeze > ./req.txt
-```
+- `./req.txt` list of python libraries. Get all dependencies by activating a python virtual environment and run
+	```bash
+	pip install -r ./req.txt
+	```
+	- Or update it with your dependencies when needed
+	```bash
+	pip freeze > ./req.txt
+	```
 
-# Image Storage
+- `./docs` some documentations, currently contains schema of the databases we use for our implementation. 
+# Image HTTP Server
 
 - The image is stored in Neo4j as a URL, which can be used to get the file via a **Simple HTTP Server** 
 - To set up the server, in the `01_MRI_Data` directory, run
